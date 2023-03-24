@@ -1,0 +1,150 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  // NOTE: When using postgresql, mysql or sqlserver, uncomment the @db.Text annotations in model Account below
+  // Further reading:
+  // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
+  // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+  url      = env("DATABASE_URL")
+}
+
+model Example {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Necessary for Next auth
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String?    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  pollVotes     PollVote[]
+  posts         Post[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Post {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model PollVote {
+  id           String     @id @default(cuid())
+  pollId       String
+  pollOptionId String
+  userId       String
+  poll         Poll       @relation(fields: [pollId], references: [id])
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+}
+
+model PollOption {
+  id              String     @id @default(cuid())
+  pollId          String
+  digest          String
+  html            String     @db.Text
+  anonymous_votes Int
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  polls           Poll[]
+  pollVotes       PollVote[]
+
+  @@unique([pollId, digest])
+}
+
+model Poll {
+  id               String         @id @default(cuid())
+  name             String         @default("poll")
+  title            String?
+  group            String?
+  closeAt          DateTime?
+  type             PollType       @default(value: REGULAR)
+  status           PollStatus     @default(value: OPEN)
+  result           PollResult     @default(value: ALWAYS)
+  visibility       PollVisibility @default(value: SECRET)
+  chartType        PollChartType  @default(value: BAR)
+  min              Int            @default(0)
+  max              Int            @default(0)
+  step             Int            @default(0)
+  anonymous_voters Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  options          PollOption     @relation(fields: [pollOptionId], references: [id])
+  pollOptionId     String
+  pollVotes        PollVote[]
+
+  @@unique([id, name])
+}
+
+enum PollType {
+  REGULAR
+  MULTIPLE
+  NUMBER
+}
+
+enum PollChartType {
+  BAR
+  PIE
+}
+
+enum PollStatus {
+  OPEN
+  CLOSED
+}
+
+enum PollResult {
+  ALWAYS
+  ON_VOTE
+  ON_CLOSE
+  STAFF_ONLY
+}
+
+enum PollVisibility {
+  EVERYONE
+  SECRET
+}
